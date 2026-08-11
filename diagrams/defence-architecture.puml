@@ -1,0 +1,59 @@
+@startuml 
+!include 
+https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/maste
+r/C4_Deployment.puml 
+ 
+title Defense Architecture: DMZ-to-LAN APM Bridge 
+ 
+Deployment_Node(dmz, "DMZ Network Domain (Semi-Trusted)", "Network 
+Isolation Zone") { 
+    Deployment_Node(app_server, "DMZ Host Server", "Linux / 
+Container Host") { 
+        Container(app, "Web Application", "Node.js / Java / 
+Python") 
+        Container(probe, "APM Probe Agent", "Go / C++ Agent", 
+"Collects performance metrics & trace headers") 
+    } 
+} 
+ 
+Deployment_Node(firewall_zone, "Security Perimeter / Firewall 
+Layer") { 
+    Container(ngfw, "Next-Gen Firewall / Data Diode", "Hardware / 
+Virtual Appliance", "Enforces strict DMZ-to-LAN Push rules. Blocks 
+LAN-to-DMZ inbound probes.") 
+} 
+ 
+Deployment_Node(lan, "Internal Core LAN Domain (Trusted)", "Core 
+Network Infrastructure") { 
+    Deployment_Node(ingestion_cluster, "Ingestion Service Cluster", 
+"Kubernetes / Linux Server") { 
+        Container(mtls, "mTLS & Rate Limiter", "Envoy / NGINX", 
+"Terminates mTLS & enforces rate limits") 
+        Container(validator, "Schema & PII Sanitizer", "Spring Boot 
+Service", "Validates payload structure & scrubs PII") 
+    } 
+     
+    Deployment_Node(processing_cluster, "Processing Engine Node", 
+"App Cluster") { 
+        Container(engine, "APM Core Engine", "Java / Go 
+Microservice", "Calculates metrics & evaluates SLAs") 
+    } 
+     
+Deployment_Node(storage_node, "Secure Storage Cluster", 
+"Database Infrastructure") { 
+ContainerDb(tsdb, "Telemetry Database", "Encrypted 
+Time-Series DB", "AES-256 Encrypted Storage") 
+} 
+} 
+Rel(app, probe, "Gathers execution trace & performance stats", 
+"Local IPC") 
+Rel(probe, ngfw, "Pushes encrypted metrics", "HTTPS / mTLS 1.3 / 
+Port 443") 
+Rel(ngfw, mtls, "Unidirectional push forwarding", "HTTPS / Port 
+443") 
+Rel(mtls, validator, "Passes verified stream", "Internal gRPC") 
+Rel(validator, engine, "Forwards clean, sanitized telemetry", 
+"Buffered Event Queue") 
+Rel(engine, tsdb, "Writes metrics and SLA logs", "Encrypted DB 
+Connection") 
+@enduml 

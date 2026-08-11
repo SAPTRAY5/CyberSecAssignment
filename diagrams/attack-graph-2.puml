@@ -1,0 +1,30 @@
+@startuml
+title Threat Scenario 2: Malicious Telemetry Payload Injection Graph
+
+skinparam ActivityBackgroundColor #FFF0F0
+skinparam ActivityBorderColor #CC0000
+skinparam ArrowColor #CC0000
+
+start
+:Attacker crafts malicious telemetry payload;
+note right: Embeds exploit (Initial Access / RCE string) in trace headers
+
+:Probe Agent transmits payload via HTTPS (Port 443);
+:Payload passes Firewall Conduit (Legitimate Outbound Traffic);
+:Payload arrives at Internal APM Ingestion Service;
+
+if (Ingestion Layer Defense?) then (No Schema Validation / Plain Parsing)
+    :Parser executes malicious string during payload processing;
+    :Remote Code Execution (RCE) triggered on Ingestion Node;
+    :Attacker gains elevated access to Internal APM Database;
+    :Telemetry Data Corrupted / Monitoring Blind Spot Created;
+    stop
+else (mTLS + Strict Schema Validation + PII Redaction)
+    :Schema Validator detects malformed payload structure;
+    :PII Redactor strips/sanitizes malicious strings;
+    -[#green]-> Payload Dropped & Security Alert Generated;
+    :Internal Core LAN Protected;
+    end
+endif
+
+@enduml

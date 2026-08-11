@@ -1,0 +1,29 @@
+@startuml
+title Threat Scenario 1: Lateral Pivot Attack Graph
+
+skinparam ActivityBackgroundColor #FFF0F0
+skinparam ActivityBorderColor #CC0000
+skinparam ArrowColor #CC0000
+
+start
+:External Attacker targets public application;
+:Exploit Web Vulnerability (Initial Access) on DMZ Node;
+note right: Initial Compromise in DMZ Zone
+
+:Gain shell access on DMZ Application Host;
+:Discover APM Probe Agent & active connection to LAN;
+
+if (Firewall Enforcement?) then (Bi-directional / Misconfigured)
+    :Establish Tunnel / Reverse Shell via APM Monitoring Port;
+    :Lateral Movement across Firewall Conduit into Internal LAN;
+    :Compromise Internal Core APM Server;
+    :Lateral Movement to Internal Data Stores;
+    stop
+else (Strict Unidirectional Push / Data Diode)
+    :Attempt Inbound LAN Connection;
+    -[#green]-> Blocked by Firewall Rule / Data Diode;
+    :Attack Contained within DMZ Zone;
+    end
+endif
+
+@enduml

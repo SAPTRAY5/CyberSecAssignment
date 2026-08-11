@@ -1,0 +1,35 @@
+@startuml
+title C4 Level 3 — Component Diagram: Ingestion Service (Internal Core LAN)
+
+top to bottom direction
+skinparam componentStyle rectangle
+
+skinparam rectangle {
+    BackgroundColor<<container>> #438DD5
+    FontColor<<container>> #FFFFFF
+    BorderColor<<container>> #2E6295
+    
+    BackgroundColor<<component>> #85BBF0
+    FontColor<<component>> #000000
+    BorderColor<<component>> #5D82A8
+}
+
+rectangle "Firewall Conduit\n[Container: NGFW / Data Diode]\nPushes incoming HTTPS streams from DMZ probes." as fw_conduit <<container>>
+rectangle "APM Processing Engine\n[Container: Backend Engine]\nProcesses clean metrics and evaluates SLAs." as apm_engine <<container>>
+
+package "APM Ingestion Service" {
+    rectangle "mTLS Endpoint Listener\n[Component: Netty / TLS 1.3 Engine]\nTerminates mTLS connection and enforces probe client certificate verification." as tls_endpoint <<component>>
+    rectangle "Rate Limiter & IP Whitelisting\n[Component: Token Bucket]\nEnforces strict IP white-listing and protects against telemetry flood DoS attacks." as rate_limiter <<component>>
+    rectangle "Schema & Input Validator\n[Component: JSON / Proto Schema Engine]\nValidates payload structure and blocks malformed data (prevents Log4j / RCE)." as schema_validator <<component>>
+    rectangle "PII Redaction & Sanitizer\n[Component: Regex / Masking Module]\nScans transaction headers for PII and redacts sensitive data for GDPR." as pii_sanitizer <<component>>
+    rectangle "Ingestion Buffer Forwarder\n[Component: Queue Producer]\nBuffers sanitized payloads and pushes them to the internal engine queue." as queue_publisher <<component>>
+}
+
+fw_conduit --> tls_endpoint : "Delivers encrypted payload\n[HTTPS / mTLS 1.3]"
+tls_endpoint --> rate_limiter : "Passes request context"
+rate_limiter --> schema_validator : "Forwards connection stream"
+schema_validator --> pii_sanitizer : "Sends structurally validated telemetry payload"
+pii_sanitizer --> queue_publisher : "Sends sanitized telemetry object"
+queue_publisher --> apm_engine : "Publishes clean event stream\n[Internal Queue / gRPC]"
+
+@enduml

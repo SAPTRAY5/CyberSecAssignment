@@ -1,0 +1,45 @@
+@startuml
+title C4 Level 2 — Container Diagram: DMZ-to-LAN APM Bridge Architecture
+
+top to bottom direction
+skinparam componentStyle rectangle
+
+skinparam rectangle {
+    BackgroundColor<<person>> #08427B
+    FontColor<<person>> #FFFFFF
+    BorderColor<<person>> #052E56
+    
+    BackgroundColor<<container>> #438DD5
+    FontColor<<container>> #FFFFFF
+    BorderColor<<container>> #2E6295
+    
+    BackgroundColor<<db>> #438DD5
+    FontColor<<db>> #FFFFFF
+    BorderColor<<db>> #2E6295
+}
+
+rectangle "Operations & Security Staff\n[Person]\nSREs, NOC, Security Analysts" as operators <<person>>
+
+package "DMZ Zone (Semi-Trusted Network)" {
+    rectangle "DMZ APM Probe Agent\n[Container: Agent / Collector]\nGathers latency, availability metrics, throughput, and headers." as dmz_probe <<container>>
+}
+
+package "Firewall Conduit / Security Boundary" {
+    rectangle "NGFW / Data Diode Conduit\n[Container: Network Security Control]\nRestricts traffic strictly to unidirectional PUSH (DMZ to LAN) on Port 443." as fw_conduit <<container>>
+}
+
+package "Core Internal LAN Zone (Trusted Network)" {
+    rectangle "APM Ingestion Service\n[Container: Java / Spring Boot or Go]\nTerminates mTLS, validates payload schema, and redacts PII/malicious inputs." as ingestion_svc <<container>>
+    rectangle "APM Processing Engine\n[Container: Backend Processing Service]\nCalculates metrics, evaluates SLA breaches, and generates alert streams." as apm_engine <<container>>
+    database "APM Telemetry Storage\n[Container: Time-Series / Relational DB]\nStores metric history, system metadata, and sanitized trace headers." as apm_db <<db>>
+    rectangle "APM Operational UI\n[Container: React / Node.js Web App]\nProvides visual dashboards, performance charts, and alert management." as dashboard <<container>>
+}
+
+dmz_probe --> fw_conduit : "Pushes encrypted metric stream\n[HTTPS / mTLS 1.3]"
+fw_conduit --> ingestion_svc : "Forwards packet stream via uni-directional rule\n[HTTPS / Port 443]"
+ingestion_svc --> apm_engine : "Passes validated & sanitized telemetry\n[Internal gRPC / Queue]"
+apm_engine --> apm_db : "Stores metrics, logs, and metadata\n[Encrypted DB Connection]"
+operators --> dashboard : "Views dashboards and configures alerts\n[HTTPS]"
+dashboard --> apm_db : "Queries telemetry data for reports\n[SQL / TSDB API]"
+
+@enduml

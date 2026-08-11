@@ -1,0 +1,43 @@
+@startuml
+title Defense-in-Depth Architecture: DMZ-to-LAN APM Bridge
+
+top to bottom direction
+skinparam node {
+    BackgroundColor #F8F9FA
+    BorderColor #333333
+}
+
+node "DMZ Network Domain (Semi-Trusted Network Zone)" as dmz {
+    node "DMZ Host Server [Linux / Container Host]" as app_server {
+        [Web Application\n(Node.js / Java / Python)] as app
+        [APM Probe Agent\n(Go / C++ Agent)] as probe
+    }
+}
+
+node "Security Perimeter / Firewall Layer" as firewall_zone {
+    [Next-Gen Firewall / Data Diode\n(Hardware / Virtual Appliance)] as ngfw
+}
+
+node "Internal Core LAN Domain (Trusted Network)" as lan {
+    node "Ingestion Service Cluster" as ingestion_cluster {
+        [mTLS & Rate Limiter\n(Envoy / NGINX)] as mtls
+        [Schema & PII Sanitizer\n(Spring Boot Service)] as validator
+    }
+    
+    node "Processing Engine Node" as processing_cluster {
+        [APM Core Engine\n(Java / Go Microservice)] as engine
+    }
+    
+    node "Secure Storage Cluster" as storage_node {
+        database "Telemetry Database\n(Encrypted Time-Series DB)" as tsdb
+    }
+}
+
+app --> probe : "Gathers execution trace & performance stats\n[Local IPC]"
+probe --> ngfw : "Pushes encrypted metrics\n[HTTPS / mTLS 1.3 / Port 443]"
+ngfw --> mtls : "Unidirectional push forwarding\n[HTTPS / Port 443]"
+mtls --> validator : "Passes verified stream\n[Internal gRPC]"
+validator --> engine : "Forwards clean, sanitized telemetry\n[Buffered Event Queue]"
+engine --> tsdb : "Writes metrics and SLA logs\n[Encrypted DB Connection]"
+
+@enduml

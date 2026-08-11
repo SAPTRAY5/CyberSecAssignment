@@ -1,0 +1,34 @@
+@startuml
+title C4 Level 1 — System Context Diagram: DMZ-to-LAN APM Bridge
+
+top to bottom direction
+skinparam componentStyle rectangle
+
+skinparam rectangle {
+    BackgroundColor<<person>> #08427B
+    FontColor<<person>> #FFFFFF
+    BorderColor<<person>> #052E56
+    
+    BackgroundColor<<system>> #1168BD
+    FontColor<<system>> #FFFFFF
+    BorderColor<<system>> #0B4884
+    
+    BackgroundColor<<ext_system>> #888888
+    FontColor<<ext_system>> #FFFFFF
+    BorderColor<<ext_system>> #555555
+}
+
+rectangle "SRE & NOC Operators\n[Person]\nMonitors availability, latency, system alerts, and SLA dashboards." as sre_noc <<person>>
+rectangle "Security Analysts\n[Person]\nAudits telemetry integrity, access controls, and data flow logs." as sec_analyst <<person>>
+rectangle "Application Owners\n[Person]\nReviews application performance, error rates, and compliance reports." as app_owner <<person>>
+
+rectangle "DMZ-to-LAN APM Bridge\n[Software System]\nSecurely bridges performance telemetry from DMZ hosts to internal core LAN databases." as apm_bridge <<system>>
+
+rectangle "DMZ Web Applications\n[External System]\nCustomer-facing web applications and backend nodes hosted in the DMZ." as dmz_apps <<ext_system>>
+
+dmz_apps --> apm_bridge : "Pushes performance metrics & trace headers\n[HTTPS / TLS 1.3 (Port 443)]"
+sre_noc --> apm_bridge : "Views system health & receives operational alerts\n[HTTPS / Web UI]"
+sec_analyst --> apm_bridge : "Audits access control & FIM security logs\n[HTTPS / SIEM Integrations]"
+app_owner --> apm_bridge : "Reviews SLA compliance & performance metrics\n[HTTPS / Dashboard]"
+
+@enduml
